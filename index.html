@@ -1,0 +1,561 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>アセスメントツール</title>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- React & ReactDOM -->
+    <script src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+    <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+    <!-- Babel for JSX -->
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+    <!-- html2pdf.js -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@400;700;900&display=swap');
+        
+        html, body, #root { 
+            height: 100%; 
+            margin: 0; 
+            padding: 0; 
+            overflow: hidden; 
+            font-family: 'Noto Sans JP', sans-serif;
+            -webkit-tap-highlight-color: transparent;
+        }
+
+        .scrollbar-hide::-webkit-scrollbar { display: none; }
+        .scrollbar-hide { -ms-overflow-style: none; scrollbar-width: none; }
+
+        .header-transition {
+            transition: max-height 0.3s ease-in-out, opacity 0.3s;
+            overflow: hidden;
+        }
+    </style>
+</head>
+<body class="bg-slate-50">
+    <div id="root"></div>
+
+    <script type="text/babel">
+        const { useState, useEffect, useRef, useMemo } = React;
+
+        const ASSESSMENT_DATA = [
+            {
+                category: "健康・生活",
+                criteria: "【はい】いつも もしくは よく自分でできる、質問内容によく当てはまる。\n【いいえ】たまに もしくは ほとんど自分でできない、できる日もあればできない日もある。",
+                items: [
+                    { id: "h1", text: "十分な睡眠がとれて、規則正しい生活を送れている" },
+                    { id: "h2", text: "体調を崩すことが少ない" },
+                    { id: "h3", text: "過度に頑張り過ぎない" },
+                    { id: "h4", text: "お箸を使って食べる(交差箸になっても良い)" },
+                    { id: "h5", text: "食器を手にもって食べる" },
+                    { id: "h6", text: "決められた時間内(給食時間等)にご飯を食べることができる" },
+                    { id: "h7", text: "お箸を正しく持ってこぼさずに食べることができる" },
+                    { id: "h8", text: "「衣服の着脱が自分でできる(シャツとズボン両方できて「はい」)" },
+                    { id: "h9", text: "服のボタンの付け外しができる(ボタンのサイズは問わない)" },
+                    { id: "h10", text: "ファスナーが付いた上着を着脱できる" },
+                    { id: "h11", text: "服の前後を間違えずに着ることができる" },
+                    { id: "h12", text: "シャツの裾をズボンの中に入れることができる" },
+                    { id: "h13", text: "服が汚れると自分で着替える" },
+                    { id: "h14", text: "大人の手助けがなくても自分で排泄ができる" },
+                    { id: "h15", text: "排便後、お尻をトイレットペーパーで拭くことができる" },
+                    { id: "h16", text: "外出先のトイレに行くことができる" },
+                    { id: "h17", text: "自分でお風呂に入り、髪や体を洗うことができる" },
+                    { id: "h18", text: "歯を磨くことができる" },
+                    { id: "h19", text: "寝癖を直すことができる" },
+                    { id: "h20", text: "食後に口の周りや手をきれいにしている" },
+                    { id: "h21", text: "歩道を歩く際に車に気を付ける" },
+                    { id: "h22", text: "信号や横断歩道の交通ルールが守れる" },
+                    { id: "h23", text: "慣れた場所へ交通機関を利用して行ける" },
+                    { id: "h24", text: "学校へ1人もしくは、お友達と登校できる" },
+                    { id: "h25", text: "大人の声かけで玩具を片付けることができる" },
+                    { id: "h26", text: "自分が使ったものを元の場所に片付けることができる" },
+                    { id: "h27", text: "忘れ物が少ない" },
+                    { id: "h28", text: "物を紛失することが少ない" },
+                    { id: "h29", text: "大人の声かけや誘導に合わせて次の行動に移れる" },
+                    { id: "h30", text: "自分で学校の準備ができる" },
+                    { id: "h31", text: "タイマーや視覚支援で次の行動へ移れる" },
+                    { id: "h32", text: "時計を読むことができる(デジタル、アナログどちらでも可)" },
+                    { id: "h33", text: "事前に伝えた時間に合わせて行動できる" },
+                    { id: "h34", text: "買い物の流れを理解している" },
+                    { id: "h35", text: "大人と一緒であれば買い物ができる" },
+                    { id: "h36", text: "硬貨や紙幣の種類や価値が分かる(例: 10円玉は50円玉より大きい)" },
+                    { id: "h37", text: "自分で必要な金額を支払い、買い物することができる" },
+                    { id: "h_extra", text: "自由記述（健康・生活）", isExtra: true },
+                ]
+            },
+            {
+                category: "感覚",
+                criteria: "【はい】毎日見られる もしくは 月の半分以上見られる\n【いいえ】1度も見られない もしくは 月に数回程度見られる",
+                items: [
+                    { id: "s1", text: "活動や学習中に席を離れてしまう", type: "neg" },
+                    { id: "s2", text: "部屋を理由もなく跳びはねることやくるくる回ることがある", type: "neg" },
+                    { id: "s3", text: "椅子を後ろに傾けたり、揺らしたりして座る", type: "neg" },
+                    { id: "s4", text: "食べ物以外の固い物を口に入れて、噛んでいることがある", type: "neg" },
+                    { id: "s5", text: "固くて弾力のある食べ物を好む", type: "neg" },
+                    { id: "s6", text: "水や粘土、砂でよく遊ぶ" },
+                    { id: "s7", text: "先生や友達にベタベタする", type: "neg" },
+                    { id: "s8", text: "人や物のにおいを確かめることがある", type: "neg" },
+                    { id: "s9", text: "名前を呼ばれても気づかないことがある", type: "neg" },
+                    { id: "s10", text: "怪我に気づかないことがある", type: "neg" },
+                    { id: "s11", text: "人に触れられても気づかないことがある", type: "neg" },
+                    { id: "s12", text: "物を扱うときの力がつよい(例: ドアを勢いよく閉めるなど)", type: "neg" },
+                    { id: "s13", text: "力加減が分からない", type: "neg" },
+                    { id: "s14", text: "ブランコなどの揺れる、回転する遊具を好む", type: "neg" },
+                    { id: "s15", text: "衣服が少しでも汚れることや濡れることを嫌がる", type: "neg" },
+                    { id: "s16", text: "手が汚れることを嫌がる", type: "neg" },
+                    { id: "s17", text: "洗髪や散髪、歯磨き、爪切り、耳かきを嫌がる(どれか1つでも該当していればはいを選択)", type: "neg" },
+                    { id: "s18", text: "特定の素材や感触のある服を着たがらない", type: "neg" },
+                    { id: "s19", text: "不安定な場所や高い場所を過度に怖がる", type: "neg" },
+                    { id: "s20", text: "突然、押されたりすると怒る", type: "neg" },
+                    { id: "s21", text: "特定の音や声を嫌がる", type: "neg" },
+                    { id: "s22", text: "騒がしい場所を嫌がる", type: "neg" },
+                    { id: "s23", text: "蛍光灯やLEDの光を嫌がる", type: "neg" },
+                    { id: "s24", text: "突然、目を塞いだり目を細める", type: "neg" },
+                    { id: "s25", text: "特定の嫌いなにおいがある", type: "neg" },
+                    { id: "s26", text: "ご飯を食べる時に鼻をつまむ", type: "neg" },
+                    { id: "s27", text: "食べ物の好き嫌いが多い(偏食がある)", type: "neg" },
+                    { id: "s_extra", text: "自由記述（感覚）", isExtra: true },
+                ]
+            },
+            {
+                category: "運動",
+                criteria: "【はい】質問内容によく当てはまる、よくできる(10回挑戦して7回以上成功する)、機会があればできると思われる\n【いいえ】質問内容にほとんど もしくは 全く当てはまらない、できない、できる時もあればできない時もある",
+                items: [
+                    { id: "m1", text: "姿勢を保つことができる" },
+                    { id: "m2", text: "座っている時に姿勢が崩れることが少ない" },
+                    { id: "m3", text: "「立っている時はまっすぐ姿勢を保てる" },
+                    { id: "m4", text: "「平均台から落ちずに渡りきることができる" },
+                    { id: "m5", text: "目を閉じて10秒以上片足立ちができる" },
+                    { id: "m6", text: "だるまさんポーズが10秒以上できる（参考資料あり）" },
+                    { id: "m7", text: "飛行機ポーズが10秒以上できる（参考資料あり）" },
+                    { id: "m8", text: "10歩程度、手押し車で前へ進むことができる" },
+                    { id: "m9", text: "寄り目ができる" },
+                    { id: "m10", text: "バウンドする小さいボール(テニスボール等)をキャッチできる" },
+                    { id: "m11", text: "約1m離れたところから投げられた小さなボールをキャッチできる" },
+                    { id: "m12", text: "人や物によくぶつかる", type: "neg" },
+                    { id: "m13", text: "バンザイのポーズを真似できる" },
+                    { id: "m14", text: "指で四角を作るポーズを真似できる（参考資料あり）" },
+                    { id: "m15", text: "右手で左耳を触るポーズを真似できる" },
+                    { id: "m16", text: "危険なことや怪我等をせずに遊具で遊ぶことができる" },
+                    { id: "m17", text: "初めて経験する運動にも挑戦することができる" },
+                    { id: "m18", text: "同年齢児と比べて運動の苦手さや不器用さを感じない" },
+                    { id: "m19", text: "繰り返ししている運動は上手にできるようになる" },
+                    { id: "m20", text: "数メートル先の相手に向かって、小さなボール(テニスボール等)を上投げで投げることができる" },
+                    { id: "m21", text: "走り方にぎこちなさを感じない" },
+                    { id: "m22", text: "連続10回縄跳びができる" },
+                    { id: "m23", text: "体操や運動会の踊り等を同年齢児と同じくらいの期間で習得する" },
+                    { id: "m_extra", text: "自由記述（運動）", isExtra: true },
+                ]
+            },
+            {
+                category: "手指",
+                criteria: "【はい】質問内容によく当てはまる、よくできる(10回挑戦して7回以上成功する)\n【いいえ】できない、できる時もあればできない時もある、機会があってもできないと思われる",
+                items: [
+                    { id: "f1", text: "「鉄棒にぶら下がることが10秒以上できる" },
+                    { id: "f2", text: "「洗濯ばさみを親指と人差し指、中指の腹でつまむことができる" },
+                    { id: "f3", text: "机の上に置かれたカギをつまんで取ることができる" },
+                    { id: "f4", text: "「大豆サイズの大きさの物をつまむことができる" },
+                    { id: "f5", text: "爪楊枝をつまむことができる" },
+                    { id: "f6", text: "子どもが目を閉じたまま、大人がどの指を軽く触れたのかが分かる(全部の指)" },
+                    { id: "f7", text: "目を閉じた状態で、丸、四角、三角の形をしたブロックや積み木の識別が全部できる" },
+                    { id: "f8", text: "親指と他の指の指先のタッピングができる（参考資料あり）" },
+                    { id: "f9", text: "チョキができる" },
+                    { id: "f10", text: "ピストルの形を指で作ることができる" },
+                    { id: "f11", text: "ペットボトルの蓋を開けることができる" },
+                    { id: "f12", text: "約2.5cmの正方形の積み木を10個以上積むことができる" },
+                    { id: "f13", text: "ハサミで丸の形を切ることができる" },
+                    { id: "f14", text: "消しゴムで消しあとを残さずに消すことができる" },
+                    { id: "f15", text: "水が垂れない程度まで雑巾やタオルを絞ることができる" },
+                    { id: "f16", text: "定規で縦線や横線を引くことができる" },
+                    { id: "f17", text: "蝶々結びができる" },
+                    { id: "f18", text: "○、□、×、△の形を全部書き写すことができる" },
+                    { id: "f19", text: "文字のなぞり書きができる" },
+                    { id: "f20", text: "鏡文字は見られない" },
+                    { id: "f21", text: "ノートのマスに合わせて文字を書くことができる" },
+                    { id: "f22", text: "形が整った文字を書くことができる" },
+                    { id: "f23", text: "丁度良い筆圧で文字を書くことができる" },
+                    { id: "f24", text: "時間内に板書された内容をノートに書き写すことができる" },
+                    { id: "f25", text: "プリント課題は、同年齢児と同じくらいの速さで書くことができる" },
+                    { id: "f_extra", text: "自由記述（手指）", isExtra: true },
+                ]
+            },
+            {
+                category: "言語コミュニケーション",
+                criteria: "【はい】質問内容によく当てはまる、よくできる\n【いいえ】当てまらない、できない、同年齢に比べて課題がある",
+                items: [
+                    { id: "l1", text: "「手を洗う/ご飯を食べる/お茶を飲む」などの日常的な簡単な指示を理解できる" },
+                    { id: "l2", text: "「何・どこ・誰」を使った質問に答えることができる" },
+                    { id: "l3", text: "「どうして」を使った質問に対して理由を答えられる" },
+                    { id: "l4", text: "右手で左肘を触る指示を理解できる" },
+                    { id: "l5", text: "左手で右耳をつまむ指示を理解できる" },
+                    { id: "l6", text: "「あげる もらう」を正しく使用できる" },
+                    { id: "l7", text: "「追いかける追いかけられる」の理解ができる" },
+                    { id: "l8", text: "「もし～だったら･･･」 のような仮定表現を理解できる。または使用する様子がある" },
+                    { id: "l9", text: "「集団の中で大人の一斉指示に応じる" },
+                    { id: "l10", text: "乗り物や動物などのカテゴリーを表すことばの理解ができる" },
+                    { id: "l11", text: "「座るものは?/雨の日にさすものは?」の質問に両方答えられる(回答例:椅子、傘)" },
+                    { id: "l12", text: "「スプーンはどんなもの?」の質問に答えることができる(回答例: ご飯を食べる道具)" },
+                    { id: "l13", text: "「赤いものには何がありますか?」の質問に3つ答えることができる(回答例: りんご、いちご、トマト等)" },
+                    { id: "l14", text: "「丸いものには何がありますか?」の質問に3つ答えることができる(回答例: ボール、すいか、月等)" },
+                    { id: "l15", text: "「柔らかいものには何がありますか?」の質問に3つ答えることができる(回答例:豆腐、雪、スライム等)" },
+                    { id: "l16", text: "「動物の仲間には何がありますか?」の質問に3つ答えることができる(回答例: 犬、ネコ、ゾウ等)" },
+                    { id: "l17", text: "「雨の日にお家を背負って葉っぱの上にいるものは?」の質問に答えることができる(答え: カタツムリ)" },
+                    { id: "l18", text: "物の名前(名詞)を使って話す様子が見られる" },
+                    { id: "l19", text: "動きを表すことばを使用する様子が見られる(例: 食べる、寝る)" },
+                    { id: "l20", text: "様子を表すことばを使用する様子がある(例:冷たい、長い)" },
+                    { id: "l21", text: "多語文で話す(例: 昼休みに運動場で友達とドッジボールをしました)" },
+                    { id: "l22", text: "舌を前に出すことや左右の口角に交互につけることができる" },
+                    { id: "l23", text: "両頬を膨らますことができる" },
+                    { id: "l24", text: "口唇を尖らせることができる" },
+                    { id: "l25", text: "頬を片側ずつ膨らませることができる" },
+                    { id: "l26", text: "大人が推測せずに明瞭な言葉で伝えることができる" },
+                    { id: "l27", text: "シャボン玉を大小吹き分ける" },
+                    { id: "l28", text: "発音を誤ることなく話すことができる" },
+                    { id: "l29", text: "話をする時に、思い浮かべたものをスムーズにことばにすることができる" },
+                    { id: "l30", text: "出来事を部分的に伝えることができる" },
+                    { id: "l31", text: "目の前の出来事について説明できる" },
+                    { id: "l32", text: "出来事を順序立てて説明できる" },
+                    { id: "l33", text: "今日あった出来事について、助詞を使って説明することができる(回答例:は・が・になど)" },
+                    { id: "l34", text: "読んだ本の内容や昨日観たTVの内容について説明できる" },
+                    { id: "l_extra", text: "自由記述（言語）", isExtra: true },
+                ]
+            },
+            {
+                category: "認知",
+                criteria: "【はい】質問内容によく当てはまる、正解・実行できる\n【いいえ】ほとんど当てはまらない、できない、間違えることが多い",
+                items: [
+                    { id: "c1", text: "課題や活動が終わるまで集中することができる" },
+                    { id: "c2", text: "1つのことに没頭し過ぎる様子は見られない" },
+                    { id: "c3", text: "周囲の状況に左右されることなく集中力を保てる" },
+                    { id: "c4", text: "文字や行を飛ばさずに読むことができる" },
+                    { id: "c5", text: "読み間違えずに音読ができる" },
+                    { id: "c6", text: "「文章の終わりを勝手に読み替えたり、省略せずに読むことができる" },
+                    { id: "c7", text: "言葉を1文字ずつ読まずに(逐次読み)文字のまとまりで読める" },
+                    { id: "c8", text: "言葉を言い間違えることが少ない(例:ふね→ふえ、さかな→たかな等)" },
+                    { id: "c9", text: "「がっこう」や「よっと」などの小さい文字が入った言葉を正しく読める" },
+                    { id: "c10", text: "「うさぎ」の言葉の音の数がわかる(正解3個)" },
+                    { id: "c11", text: "「かたつむり」の言葉の音の数がわかる(正解5個)" },
+                    { id: "c12", text: "「いるか」の言葉の逆さまの言葉がわかる(正解かるい)" },
+                    { id: "c13", text: "「かえる」の言葉の逆さまの言葉がわかる(正解るえか)" },
+                    { id: "c14", text: "言葉で「ひまわり」と伝えて、「わ」を取る言葉がわかる(正解ひまり)" },
+                    { id: "c15", text: "言葉で「にわかとり」と伝えて、「か」を取る言葉がわかる(正解にわとり)" },
+                    { id: "c16", text: "しりとりができる" },
+                    { id: "c17", text: "「からすすいかくれよん」の文を示して、3つのことばを探すことができる（参考資料あり）" },
+                    { id: "c18", text: "「かたモコラ くすもなる うれきんと」の文を示して、できるだけ早くつまずかずに読むことができる（参考資料あり）" },
+                    { id: "c19", text: "同年齢児と同じくらい漢字を読むことができる" },
+                    { id: "c20", text: "書きたい文字を思い出すことに時間がかかる", type: "neg" },
+                    { id: "c21", text: "促音( )や拗音(ちゃ、ちゅ、ちょ)を含んだ言葉を書き間違える", type: "neg" },
+                    { id: "c22", text: "同年齢児と同じくらい漢字を読むことはできるが書くことができない", type: "neg" },
+                    { id: "c23", text: "漢字の「へん」や「つくり」を反対に書くことがある", type: "neg" },
+                    { id: "c24", text: "バラバラの筆順で平仮名や漢字を書く", type: "neg" },
+                    { id: "c25", text: "「2180」の数字を5秒間見せて、反対から数字を答える問題ができる（参考資料あり）" },
+                    { id: "c26", text: "「61943」の数字を5秒間見せて、反対から数字を答える問題ができる（参考資料あり）" },
+                    { id: "c27", text: "同年齢児と同じくらい国語の文章問題を解くことができる" },
+                    { id: "c28", text: "同年齢児と同じくらい計算ができる" },
+                    { id: "c29", text: "同年齢児と同じくらい算数の文章問題ができる" },
+                    { id: "c_extra", text: "自由記述（認知）", isExtra: true },
+                ]
+            },
+            {
+                category: "社会性",
+                criteria: "【はい】いつも もしくは よく見られる、質問内容によく当てはまる。\n【いいえ】たまに もしくは ほとんど見られない、当てはまらない。",
+                items: [
+                    { id: "soc1", text: "集団活動に参加することを嫌がることが多い", type: "neg" },
+                    { id: "soc2", text: "友達の輪に入れずに1人でいることが多い", type: "neg" },
+                    { id: "soc3", text: "かくれんぼやだるまさんが転んだのルールが分からない", type: "neg" },
+                    { id: "soc4", text: "自分に都合よくルールを決めたり、変更してしまう", type: "neg" },
+                    { id: "soc5", text: "勝敗のある遊びでは、負けそうになるとその場を離れる", type: "neg" },
+                    { id: "soc6", text: "好きなことをしている時に次の行動に移れない", type: "neg" },
+                    { id: "soc7", text: "気持ちの切り替えに時間がかかる", type: "neg" },
+                    { id: "soc8", text: "融通が利かない", type: "neg" },
+                    { id: "soc9", text: "順番を待つことが苦手", type: "neg" },
+                    { id: "soc10", text: "自分の思い通りにならないと怒ることがある", type: "neg" },
+                    { id: "soc11", text: "我慢することが苦手", type: "neg" },
+                    { id: "soc12", text: "暴言や蹴る、叩くなどの行動が多い", type: "neg" },
+                    { id: "soc13", text: "思いつくことをすぐ口にだしてしまう", type: "neg" },
+                    { id: "soc14", text: "場面に合わない発言をしてしまう", type: "neg" },
+                    { id: "soc15", text: "自分が興味のあることを一方的に話してしまう", type: "neg" },
+                    { id: "soc16", text: "相手の気持ちを理解することが苦手", type: "neg" },
+                    { id: "soc17", text: "相手の言うことを言葉通りに受けてしまう(冗談が通じない)", type: "neg" },
+                    { id: "soc18", text: "本音と建前の区別がつかない", type: "neg" },
+                    { id: "soc19", text: "相手との距離が近くなりやすい", type: "neg" },
+                    { id: "soc20", text: "お友達を遊びに誘えない", type: "neg" },
+                    { id: "soc_extra", text: "自由記述（社会性）", isExtra: true },
+                ]
+            }
+        ];
+
+        const App = () => {
+            const [answers, setAnswers] = useState({});
+            const [extraTexts, setExtraTexts] = useState({});
+            const [itemNotes, setItemNotes] = useState({});
+            const [childName, setChildName] = useState("");
+            const [assessmentDate, setAssessmentDate] = useState(new Date().toISOString().split('T')[0]);
+            const [activeTab, setActiveTab] = useState(0);
+            const [exporting, setExporting] = useState(false);
+            const [isMenuOpen, setIsMenuOpen] = useState(true);
+            const [validationErrors, setValidationErrors] = useState(null);
+            const fileInputRef = useRef(null);
+            const pdfContentRef = useRef(null);
+
+            const requiredCount = useMemo(() => ASSESSMENT_DATA.reduce((acc, cat) => acc + cat.items.filter(i => !i.isExtra).length, 0), []);
+            const answeredCount = Object.keys(answers).length;
+            const progress = (answeredCount / requiredCount) * 100;
+
+            const checkValidation = () => {
+                const errors = [];
+                ASSESSMENT_DATA.forEach((cat, idx) => {
+                    const missingInCat = cat.items
+                        .filter(item => !item.isExtra)
+                        .filter(item => !answers[item.id]);
+                    if (missingInCat.length > 0) {
+                        errors.push({ idx, category: cat.category, count: missingInCat.length });
+                    }
+                });
+                return errors;
+            };
+
+            const exportToPDF = async () => {
+                if (!childName.trim()) {
+                    setValidationErrors([{ category: "基本情報", count: "氏名が未入力です" }]);
+                    return;
+                }
+                const errors = checkValidation();
+                if (errors.length > 0) {
+                    setValidationErrors(errors);
+                    return;
+                }
+
+                setValidationErrors(null);
+                setExporting(true);
+                
+                const element = pdfContentRef.current;
+                const opt = {
+                    margin: [10, 10, 10, 10],
+                    filename: `アセスメントシート_${childName || '記録'}_${assessmentDate}.pdf`,
+                    image: { type: 'jpeg', quality: 0.98 },
+                    html2canvas: { scale: 2, useCORS: true, scrollY: 0 },
+                    jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' },
+                    pagebreak: { mode: ['css', 'legacy'] }
+                };
+
+                const dataStr = JSON.stringify({ childName, assessmentDate, answers, extraTexts, itemNotes });
+                const payload = btoa(unescape(encodeURIComponent(dataStr)));
+
+                try {
+                    await html2pdf().set(opt).from(element).toPdf().get('pdf').then(pdf => {
+                        pdf.setProperties({ keywords: `assessment-payload:${payload}` });
+                    }).save();
+                } catch (e) {
+                    console.error(e);
+                } finally {
+                    setExporting(false);
+                }
+            };
+
+            const handleFile = (e) => {
+                const file = e.target.files[0];
+                if (!file) return;
+                const reader = new FileReader();
+                reader.onload = (ev) => {
+                    try {
+                        const content = new TextDecoder().decode(new Uint8Array(ev.target.result));
+                        const marker = "assessment-payload:";
+                        const idx = content.indexOf(marker);
+                        if (idx !== -1) {
+                            const base64 = content.substring(idx + marker.length, content.indexOf(')', idx)).trim();
+                            const data = JSON.parse(decodeURIComponent(escape(atob(base64))));
+                            setChildName(data.childName || "");
+                            setAssessmentDate(data.assessmentDate || "");
+                            setAnswers(data.answers || {});
+                            setExtraTexts(data.extraTexts || {});
+                            setItemNotes(data.itemNotes || {});
+                            setValidationErrors(null);
+                        }
+                    } catch (err) { console.error("Restore failed"); }
+                };
+                reader.readAsArrayBuffer(file);
+            };
+
+            const getMissingCount = (catIdx) => {
+                return ASSESSMENT_DATA[catIdx].items
+                    .filter(item => !item.isExtra)
+                    .filter(item => !answers[item.id]).length;
+            };
+
+            return (
+                <div className="flex flex-col h-screen w-full max-w-5xl mx-auto bg-white shadow-2xl overflow-hidden relative font-sans">
+                    {/* バリデーションエラーモーダル */}
+                    {validationErrors && (
+                        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-[100] p-4">
+                            <div className="bg-white rounded-2xl p-6 w-full max-w-sm shadow-2xl border-4 border-rose-500">
+                                <h2 className="text-xl text-center w-full font-bold mb-4 text-rose-600">未入力があります</h2>
+                                <ul className="space-y-2 mb-6 max-h-60 overflow-y-auto pr-2 text-sm font-medium">
+                                    {validationErrors.map((err, i) => (
+                                        <li key={i} className="flex justify-between items-center p-2 bg-rose-50 rounded-lg text-rose-700">
+                                            <span>{err.category}</span>
+                                            <span className="bg-rose-200 px-2 py-0.5 rounded-full text-xs">{err.count}件</span>
+                                        </li>
+                                    ))}
+                                </ul>
+                                <button onClick={() => setValidationErrors(null)} className="w-full py-3 bg-slate-900 text-white rounded-xl font-black hover:bg-slate-800 transition-colors">入力を続ける</button>
+                            </div>
+                        </div>
+                    )}
+
+                    <header className="bg-slate-900 px-4 py-3 text-white shrink-0 flex items-center justify-between border-b border-slate-800">
+                        <div className="flex flex-col flex-1">
+                            <h1 className="text-sm font-black tracking-tight flex items-center gap-2">
+                                <span className="bg-blue-600 px-1.5 py-0.5 rounded text-[10px]">AS</span>
+                                {childName || "未入力"} - アセスメント
+                            </h1>
+                            <div className="flex items-center gap-2 mt-1">
+                                <div className="w-full max-w-[150px] bg-slate-700 h-1.5 rounded-full overflow-hidden">
+                                    <div className="bg-blue-400 h-full transition-all duration-500" style={{ width: `${progress}%` }}></div>
+                                </div>
+                                <span className="text-[10px] text-slate-400 font-bold whitespace-nowrap">{answeredCount}/{requiredCount} 完了</span>
+                            </div>
+                        </div>
+                        <button onClick={() => setIsMenuOpen(!isMenuOpen)} className="ml-4 p-2 rounded-lg bg-slate-800 text-slate-400">▼</button>
+                    </header>
+
+                    <div className={`header-transition bg-slate-50 border-b ${isMenuOpen ? 'max-h-[500px] p-4' : 'max-h-0 py-0 opacity-0'}`}>
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 items-end">
+                            <div>
+                                <label className="text-[10px] font-bold text-slate-400 block mb-1 uppercase tracking-widest">対象者名</label>
+                                <input type="text" className="w-full p-2 border-2 border-slate-200 rounded-lg outline-none focus:border-blue-500 font-bold text-xs" placeholder="氏名を入力" value={childName} onChange={e => setChildName(e.target.value)} />
+                            </div>
+                            <div>
+                                <label className="text-[10px] font-bold text-slate-400 block mb-1 uppercase tracking-widest">評価実施日</label>
+                                <input type="date" className="w-full p-2 border-2 border-slate-200 rounded-lg outline-none focus:border-blue-500 font-bold text-xs" value={assessmentDate} onChange={e => setAssessmentDate(e.target.value)} />
+                            </div>
+                            <div className="flex gap-2 sm:col-span-2">
+                                <button onClick={() => fileInputRef.current.click()} className="flex-1 px-4 py-2 bg-white border-2 border-slate-200 rounded-lg hover:bg-slate-100 font-bold text-[10px] transition-all">復元読込</button>
+                                <input type="file" hidden ref={fileInputRef} accept=".pdf" onChange={handleFile} />
+                                <button onClick={exportToPDF} disabled={exporting} className={`flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 font-bold text-[10px] shadow-lg transition-all ${exporting ? 'opacity-50' : ''}`}>{exporting ? '生成中...' : 'PDF保存'}</button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <nav className="flex bg-slate-100 border-b overflow-x-auto scrollbar-hide shrink-0">
+                        {ASSESSMENT_DATA.map((cat, i) => {
+                            const missing = getMissingCount(i);
+                            return (
+                                <button key={i} onClick={() => setActiveTab(i)} className={`px-4 py-3 text-[10px] font-black transition-all border-b-2 shrink-0 relative ${activeTab === i ? "border-blue-600 text-blue-700 bg-white" : "border-transparent text-slate-400"}`}>
+                                    {cat.category}
+                                    {missing > 0 && <span className="absolute top-1 right-1 h-2 w-2 rounded-full bg-rose-500"></span>}
+                                </button>
+                            );
+                        })}
+                    </nav>
+
+                    <div className="flex-1 overflow-y-auto bg-white relative">
+                        <div className="px-4 py-3 bg-blue-50 border-b border-blue-100 sticky top-0 z-10 shadow-sm">
+                            <p className="text-[10px] font-black text-blue-700 uppercase mb-0.5">判断基準</p>
+                            <p className="text-xs text-blue-600 font-bold leading-relaxed whitespace-pre-wrap">{ASSESSMENT_DATA[activeTab].criteria}</p>
+                        </div>
+
+                        <div className="divide-y divide-slate-100">
+                            {ASSESSMENT_DATA[activeTab].items.map((item, i) => (
+                                <div key={item.id} className={`p-4 flex flex-col md:flex-row md:items-start gap-4 hover:bg-blue-50/10 transition-all ${item.isExtra ? 'bg-amber-50/30' : ''}`}>
+                                    <div className="flex items-center gap-3 shrink-0">
+                                        <div className={`w-8 h-8 rounded-lg flex items-center justify-center font-black text-xs border-2 ${answers[item.id] ? 'bg-green-100 border-green-500 text-green-700' : 'bg-slate-100 border-slate-200 text-slate-400'}`}>{i + 1}</div>
+                                    </div>
+                                    <div className="flex-1 flex flex-col">
+                                        <div className="text-sm font-bold text-slate-700 leading-snug">
+                                            {item.isExtra ? (
+                                                <input type="text" className="w-full p-2 bg-white border-2 border-amber-100 rounded-lg focus:border-amber-400 outline-none font-bold text-slate-700 text-xs" placeholder="その他特記事項を記入" value={extraTexts[item.id] || ""} onChange={(e) => setExtraTexts({...extraTexts, [item.id]: e.target.value})} />
+                                            ) : (
+                                                <div className={!answers[item.id] ? "text-slate-800" : "text-slate-500"}>
+                                                    {item.text}
+                                                    {item.type === 'neg' && <span className="ml-2 px-1 py-0.5 bg-rose-50 text-rose-500 text-[8px] font-black rounded border border-rose-100">要観察</span>}
+                                                </div>
+                                            )}
+                                        </div>
+                                        {!item.isExtra && (
+                                            <div className="mt-2">
+                                                <input type="text" placeholder="メモ・状況を記入（任意）" className="w-full p-2 bg-slate-50 border border-slate-200 rounded-lg text-[10px] text-slate-600 focus:bg-white focus:border-blue-300 outline-none transition-all" value={itemNotes[item.id] || ""} onChange={(e) => setItemNotes({...itemNotes, [item.id]: e.target.value})} />
+                                            </div>
+                                        )}
+                                    </div>
+                                    <div className="flex gap-2 shrink-0 justify-end md:self-center">
+                                        <button onClick={() => setAnswers({...answers, [item.id]: 'yes'})} className={`w-16 py-2 rounded-xl text-xs font-black border-2 transition-all ${answers[item.id] === 'yes' ? 'bg-green-500 border-green-500 text-white shadow-md' : 'bg-white border-slate-200 text-slate-400 hover:border-slate-300'}`}>はい</button>
+                                        <button onClick={() => setAnswers({...answers, [item.id]: 'no'})} className={`w-16 py-2 rounded-xl text-xs font-black border-2 transition-all ${answers[item.id] === 'no' ? 'bg-rose-500 border-rose-500 text-white shadow-md' : 'bg-white border-slate-200 text-slate-400 hover:border-slate-300'}`}>いいえ</button>
+                                    </div>
+                                </div>
+                            ))}
+                        </div>
+                        <div className="h-48 w-full shrink-0"></div>
+                    </div>
+
+                    <footer className="px-4 py-2 bg-slate-900 text-slate-500 text-[8px] font-bold shrink-0 text-center uppercase tracking-widest">© ASSESSMENT TOOL</footer>
+
+                    {/* PDF用隠しレイアウト */}
+                    <div style={{ position: "absolute", left: "-9999px" }}>
+                        <div ref={pdfContentRef} style={{ width: '190mm', background: 'white', color: 'black', padding: '5px 10px' }}>
+                            <div style={{ textAlign: 'center', marginBottom: '8px' }}>
+                                <div style={{ fontSize: '18px', fontWeight: 'bold', borderBottom: '2px solid #333', paddingBottom: '3px' }}>アセスメントシート (評価記録)</div>
+                            </div>
+                            <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '8px', fontSize: '10px' }}>
+                                <span>氏名: <strong style={{fontSize: '12px'}}>{childName}</strong> 様</span>
+                                <span>実施日: <strong>{assessmentDate}</strong></span>
+                            </div>
+
+                            {ASSESSMENT_DATA.map((cat, i) => (
+                                <div key={i} style={{ 
+                                    pageBreakBefore: 'auto', 
+                                    marginTop: i === 0 ? '0' : '10px' 
+                                }}>
+                                    <div style={{ backgroundColor: '#2b6cb0', color: '#fff', padding: '3px 8px', fontSize: '12px', borderRadius: '4px', fontWeight: 'bold', marginBottom: '3px' }}>
+                                        {cat.category}
+                                    </div>
+                                    <div style={{ fontSize: '8px', marginBottom: '4px', fontStyle: 'italic', color: '#4a5568', whiteSpace: 'pre-wrap' }}>
+                                        判断基準: {cat.criteria}
+                                    </div>
+                                    <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '9px', tableLayout: 'fixed' }}>
+                                        <thead>
+                                            <tr style={{ backgroundColor: '#f7fafc' }}>
+                                                <th style={{ border: '1px solid #cbd5e0', padding: '3px', width: '75%', textAlign: 'left' }}>評価項目</th>
+                                                <th style={{ border: '1px solid #cbd5e0', padding: '3px', width: '12.5%', textAlign: 'center' }}>はい</th>
+                                                <th style={{ border: '1px solid #cbd5e0', padding: '3px', width: '12.5%', textAlign: 'center' }}>いいえ</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            {cat.items.map((item, j) => (
+                                                <tr key={j} style={{ pageBreakInside: 'avoid' }}>
+                                                    <td style={{ border: '1px solid #cbd5e0', padding: '3px' }}>
+                                                        <div style={{ fontWeight: answers[item.id] ? 'bold' : 'normal' }}>
+                                                            {item.isExtra ? (extraTexts[item.id] || "（未記入）") : item.text}
+                                                        </div>
+                                                        {itemNotes[item.id] && (
+                                                            <div style={{ fontSize: '7px', color: '#718096', marginTop: '1px', paddingLeft: '4px', borderLeft: '1.5px solid #edf2f7' }}>
+                                                                メモ: {itemNotes[item.id]}
+                                                            </div>
+                                                        )}
+                                                        {!item.isExtra && item.type === 'neg' ? <span style={{fontSize:'7px', color: '#e53e3e'}}> (要観察)</span> : ''}
+                                                    </td>
+                                                    <td style={{ border: '1px solid #cbd5e0', padding: '3px', textAlign: 'center', fontWeight: 'bold' }}>
+                                                        {answers[item.id] === 'yes' ? '●' : ''}
+                                                    </td>
+                                                    <td style={{ border: '1px solid #cbd5e0', padding: '3px', textAlign: 'center', fontWeight: 'bold' }}>
+                                                        {answers[item.id] === 'no' ? '●' : ''}
+                                                    </td>
+                                                </tr>
+                                            ))}
+                                        </tbody>
+                                    </table>
+                                </div>
+                            ))}
+                        </div>
+                    </div>
+                </div>
+            );
+        };
+
+        const root = ReactDOM.createRoot(document.getElementById('root'));
+        root.render(<App />);
+    </script>
+</body>
+</html>
