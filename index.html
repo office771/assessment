@@ -82,7 +82,6 @@
                     { id: "h35", text: "大人と一緒であれば買い物ができる" },
                     { id: "h36", text: "硬貨や紙幣の種類や価値が分かる(例: 10円玉は50円玉より大きい)" },
                     { id: "h37", text: "自分で必要な金額を支払い、買い物することができる" },
-                    { id: "h_extra", text: "自由記述（健康・生活）", isExtra: true },
                 ]
             },
             {
@@ -116,7 +115,6 @@
                     { id: "s25", text: "特定の嫌いなにおいがある", type: "neg" },
                     { id: "s26", text: "ご飯を食べる時に鼻をつまむ", type: "neg" },
                     { id: "s27", text: "食べ物の好き嫌いが多い(偏食がある)", type: "neg" },
-                    { id: "s_extra", text: "自由記述（感覚）", isExtra: true },
                 ]
             },
             {
@@ -146,7 +144,6 @@
                     { id: "m21", text: "走り方にぎこちなさを感じない" },
                     { id: "m22", text: "連続10回縄跳びができる" },
                     { id: "m23", text: "体操や運動会の踊り等を同年齢児と同じくらいの期間で習得する" },
-                    { id: "m_extra", text: "自由記述（運動）", isExtra: true },
                 ]
             },
             {
@@ -178,7 +175,6 @@
                     { id: "f23", text: "丁度良い筆圧で文字を書くことができる" },
                     { id: "f24", text: "時間内に板書された内容をノートに書き写すことができる" },
                     { id: "f25", text: "プリント課題は、同年齢児と同じくらいの速さで書くことができる" },
-                    { id: "f_extra", text: "自由記述（手指）", isExtra: true },
                 ]
             },
             {
@@ -219,7 +215,6 @@
                     { id: "l32", text: "出来事を順序立てて説明できる" },
                     { id: "l33", text: "今日あった出来事について、助詞を使って説明することができる(回答例:は・が・になど)" },
                     { id: "l34", text: "読んだ本の内容や昨日観たTVの内容について説明できる" },
-                    { id: "l_extra", text: "自由記述（言語）", isExtra: true },
                 ]
             },
             {
@@ -255,7 +250,6 @@
                     { id: "c27", text: "同年齢児と同じくらい国語の文章問題を解くことができる" },
                     { id: "c28", text: "同年齢児と同じくらい計算ができる" },
                     { id: "c29", text: "同年齢児と同じくらい算数の文章問題ができる" },
-                    { id: "c_extra", text: "自由記述（認知）", isExtra: true },
                 ]
             },
             {
@@ -282,14 +276,12 @@
                     { id: "soc18", text: "本音と建前の区別がつかない", type: "neg" },
                     { id: "soc19", text: "相手との距離が近くなりやすい", type: "neg" },
                     { id: "soc20", text: "お友達を遊びに誘えない", type: "neg" },
-                    { id: "soc_extra", text: "自由記述（社会性）", isExtra: true },
                 ]
             }
         ];
 
         const App = () => {
             const [answers, setAnswers] = useState({});
-            const [extraTexts, setExtraTexts] = useState({});
             const [itemNotes, setItemNotes] = useState({});
             const [childName, setChildName] = useState("");
             const [assessmentDate, setAssessmentDate] = useState(new Date().toISOString().split('T')[0]);
@@ -300,7 +292,7 @@
             const fileInputRef = useRef(null);
             const pdfContentRef = useRef(null);
 
-            const requiredCount = useMemo(() => ASSESSMENT_DATA.reduce((acc, cat) => acc + cat.items.filter(i => !i.isExtra).length, 0), []);
+            const requiredCount = useMemo(() => ASSESSMENT_DATA.reduce((acc, cat) => acc + cat.items.length, 0), []);
             const answeredCount = Object.keys(answers).length;
             const progress = (answeredCount / requiredCount) * 100;
 
@@ -308,7 +300,6 @@
                 const errors = [];
                 ASSESSMENT_DATA.forEach((cat, idx) => {
                     const missingInCat = cat.items
-                        .filter(item => !item.isExtra)
                         .filter(item => !answers[item.id]);
                     if (missingInCat.length > 0) {
                         errors.push({ idx, category: cat.category, count: missingInCat.length });
@@ -341,7 +332,7 @@
                     pagebreak: { mode: ['css', 'legacy'] }
                 };
 
-                const dataStr = JSON.stringify({ childName, assessmentDate, answers, extraTexts, itemNotes });
+                const dataStr = JSON.stringify({ childName, assessmentDate, answers, itemNotes });
                 const payload = btoa(unescape(encodeURIComponent(dataStr)));
 
                 try {
@@ -370,7 +361,6 @@
                             setChildName(data.childName || "");
                             setAssessmentDate(data.assessmentDate || "");
                             setAnswers(data.answers || {});
-                            setExtraTexts(data.extraTexts || {});
                             setItemNotes(data.itemNotes || {});
                             setValidationErrors(null);
                         }
@@ -381,7 +371,6 @@
 
             const getMissingCount = (catIdx) => {
                 return ASSESSMENT_DATA[catIdx].items
-                    .filter(item => !item.isExtra)
                     .filter(item => !answers[item.id]).length;
             };
 
@@ -418,7 +407,7 @@
                                 <span className="text-[10px] text-slate-400 font-bold whitespace-nowrap">{answeredCount}/{requiredCount} 完了</span>
                             </div>
                         </div>
-                        <button onClick={() => setIsMenuOpen(!isMenuOpen)} className="ml-4 p-2 rounded-lg bg-slate-800 text-slate-400">▼</button>
+                        <button onClick={() => setIsMenuOpen(!isMenuOpen)} className="ml-4 p-2 rounded-lg bg-slate-800 text-slate-400 text-xs">基本設定 {isMenuOpen ? '▲' : '▼'}</button>
                     </header>
 
                     <div className={`header-transition bg-slate-50 border-b ${isMenuOpen ? 'max-h-[500px] p-4' : 'max-h-0 py-0 opacity-0'}`}>
@@ -459,26 +448,20 @@
 
                         <div className="divide-y divide-slate-100">
                             {ASSESSMENT_DATA[activeTab].items.map((item, i) => (
-                                <div key={item.id} className={`p-4 flex flex-col md:flex-row md:items-start gap-4 hover:bg-blue-50/10 transition-all ${item.isExtra ? 'bg-amber-50/30' : ''}`}>
+                                <div key={item.id} className="p-4 flex flex-col md:flex-row md:items-start gap-4 hover:bg-blue-50/10 transition-all">
                                     <div className="flex items-center gap-3 shrink-0">
                                         <div className={`w-8 h-8 rounded-lg flex items-center justify-center font-black text-xs border-2 ${answers[item.id] ? 'bg-green-100 border-green-500 text-green-700' : 'bg-slate-100 border-slate-200 text-slate-400'}`}>{i + 1}</div>
                                     </div>
                                     <div className="flex-1 flex flex-col">
                                         <div className="text-sm font-bold text-slate-700 leading-snug">
-                                            {item.isExtra ? (
-                                                <input type="text" className="w-full p-2 bg-white border-2 border-amber-100 rounded-lg focus:border-amber-400 outline-none font-bold text-slate-700 text-xs" placeholder="その他特記事項を記入" value={extraTexts[item.id] || ""} onChange={(e) => setExtraTexts({...extraTexts, [item.id]: e.target.value})} />
-                                            ) : (
-                                                <div className={!answers[item.id] ? "text-slate-800" : "text-slate-500"}>
-                                                    {item.text}
-                                                    {item.type === 'neg' && <span className="ml-2 px-1 py-0.5 bg-rose-50 text-rose-500 text-[8px] font-black rounded border border-rose-100">要観察</span>}
-                                                </div>
-                                            )}
-                                        </div>
-                                        {!item.isExtra && (
-                                            <div className="mt-2">
-                                                <input type="text" placeholder="メモ・状況を記入（任意）" className="w-full p-2 bg-slate-50 border border-slate-200 rounded-lg text-[10px] text-slate-600 focus:bg-white focus:border-blue-300 outline-none transition-all" value={itemNotes[item.id] || ""} onChange={(e) => setItemNotes({...itemNotes, [item.id]: e.target.value})} />
+                                            <div className={!answers[item.id] ? "text-slate-800" : "text-slate-500"}>
+                                                {item.text}
+                                                {item.type === 'neg' && <span className="ml-2 px-1 py-0.5 bg-rose-50 text-rose-500 text-[8px] font-black rounded border border-rose-100">要観察</span>}
                                             </div>
-                                        )}
+                                        </div>
+                                        <div className="mt-2">
+                                            <input type="text" placeholder="メモ・状況を記入（任意）" className="w-full p-2 bg-slate-50 border border-slate-200 rounded-lg text-[10px] text-slate-600 focus:bg-white focus:border-blue-300 outline-none transition-all" value={itemNotes[item.id] || ""} onChange={(e) => setItemNotes({...itemNotes, [item.id]: e.target.value})} />
+                                        </div>
                                     </div>
                                     <div className="flex gap-2 shrink-0 justify-end md:self-center">
                                         <button onClick={() => setAnswers({...answers, [item.id]: 'yes'})} className={`w-16 py-2 rounded-xl text-xs font-black border-2 transition-all ${answers[item.id] === 'yes' ? 'bg-green-500 border-green-500 text-white shadow-md' : 'bg-white border-slate-200 text-slate-400 hover:border-slate-300'}`}>はい</button>
@@ -527,14 +510,14 @@
                                                 <tr key={j} style={{ pageBreakInside: 'avoid' }}>
                                                     <td style={{ border: '1px solid #cbd5e0', padding: '3px' }}>
                                                         <div style={{ fontWeight: answers[item.id] ? 'bold' : 'normal' }}>
-                                                            {item.isExtra ? (extraTexts[item.id] || "（未記入）") : item.text}
+                                                            {item.text}
                                                         </div>
                                                         {itemNotes[item.id] && (
                                                             <div style={{ fontSize: '7px', color: '#718096', marginTop: '1px', paddingLeft: '4px', borderLeft: '1.5px solid #edf2f7' }}>
                                                                 メモ: {itemNotes[item.id]}
                                                             </div>
                                                         )}
-                                                        {!item.isExtra && item.type === 'neg' ? <span style={{fontSize:'7px', color: '#e53e3e'}}> (要観察)</span> : ''}
+                                                        {item.type === 'neg' ? <span style={{fontSize:'7px', color: '#e53e3e'}}> (要観察)</span> : ''}
                                                     </td>
                                                     <td style={{ border: '1px solid #cbd5e0', padding: '3px', textAlign: 'center', fontWeight: 'bold' }}>
                                                         {answers[item.id] === 'yes' ? '●' : ''}
